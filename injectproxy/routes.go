@@ -44,6 +44,7 @@ func NewRoutes(upstream *url.URL, label string) *routes {
 	mux.Handle("/federate", enforceMethods(r.federate, "GET"))
 	mux.Handle("/api/v1/query", enforceMethods(r.query, "GET", "POST"))
 	mux.Handle("/api/v1/query_range", enforceMethods(r.query, "GET", "POST"))
+	mux.Handle("/api/v1/series", enforceMethods(r.series, "GET", "POST"))
 	mux.Handle("/api/v1/alerts", enforceMethods(r.noop, "GET"))
 	mux.Handle("/api/v1/rules", enforceMethods(r.noop, "GET"))
 	mux.Handle("/api/v2/silences", enforceMethods(r.silences, "GET", "POST"))
@@ -142,6 +143,20 @@ func (r *routes) query(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *routes) federate(w http.ResponseWriter, req *http.Request) {
+	matcher := &labels.Matcher{
+		Name:  r.label,
+		Type:  labels.MatchEqual,
+		Value: mustLabelValue(req.Context()),
+	}
+
+	q := req.URL.Query()
+	q.Set("match[]", "{"+matcher.String()+"}")
+	req.URL.RawQuery = q.Encode()
+
+	r.handler.ServeHTTP(w, req)
+}
+
+func (r *routes) series(w http.ResponseWriter, req *http.Request) {
 	matcher := &labels.Matcher{
 		Name:  r.label,
 		Type:  labels.MatchEqual,
